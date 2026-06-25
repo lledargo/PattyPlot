@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PattyPlot – Garden Planner</title>
+  <script src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js" defer></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12/dist/htmx.min.js"></script>
+  <style>
+    :root {
+      --bg: #f0f7ee;
+      --surface: #ffffff;
+      --surface2: #f5faf2;
+      --border: #c5dfc8;
+      --primary: #2e7d32;
+      --primary-light: #4caf50;
+      --primary-dark: #1b5e20;
+      --accent: #ff8f00;
+      --text: #1a3a1c;
+      --text-muted: #5a7c5e;
+      --danger: #c62828;
+      --shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--primary-dark);
+      color: white;
+      padding: 0 16px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      z-index: 20;
+    }
+    .logo { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.5px; white-space: nowrap; }
+    .logo span { color: #81c784; }
+    nav { display: flex; gap: 3px; }
+    nav button {
+      background: transparent;
+      border: 1px solid transparent;
+      color: #a5d6a7;
+      padding: 5px 13px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    nav button:hover { background: rgba(255,255,255,0.1); color: white; }
+    nav button.active { background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.25); }
+    .header-right { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 7px 14px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 500;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-danger { background: #ffebee; color: var(--danger); }
+    .btn-danger:hover { background: #ffcdd2; }
+    .btn-ghost { background: rgba(255,255,255,0.1); color: #c8e6c9; border: 1px solid rgba(255,255,255,0.15); }
+    .btn-ghost:hover { background: rgba(255,255,255,0.18); color: white; }
+    .btn-outline { background: white; color: var(--primary); border: 1px solid var(--border); }
+    .btn-outline:hover { background: var(--surface2); }
+    .btn-sm { padding: 5px 10px; font-size: 0.76rem; }
+
+    /* ── App body ── */
+    .app-body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Tool Sidebar ── */
+    .sidebar {
+      width: 68px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 5px;
+      gap: 3px;
+      flex-shrink: 0;
+      overflow-y: auto;
+    }
+    .sidebar-label {
+      font-size: 0.56rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      width: 100%;
+      text-align: center;
+      padding: 5px 0 2px;
+      font-weight: 600;
+    }
+    .tool-btn {
+      width: 54px;
+      height: 50px;
+      border-radius: 9px;
+      border: 2px solid transparent;
+      background: var(--surface2);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      transition: all 0.15s;
+    }
+    .tool-btn .icon { font-size: 1.3rem; line-height: 1; }
+    .tool-btn .lbl { font-size: 0.52rem; color: var(--text-muted); line-height: 1; font-weight: 500; }
+    .tool-btn:hover { background: #e8f5e9; border-color: var(--primary-light); }
+    .tool-btn.active { background: #dcedc8; border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary) inset; }
+    .tool-btn.active .lbl { color: var(--primary-dark); }
+    .sidebar-divider { width: 44px; height: 1px; background: var(--border); margin: 3px 0; flex-shrink: 0; }
+
+    /* ── Grid ── */
+    .grid-area {
+      flex: 1;
+      overflow: auto;
+      padding: 16px;
+      position: relative;
+      background: var(--bg);
+    }
+    .grid-wrap {
+      display: inline-block;
+      border: 2px solid #8bc34a;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      background: #c8e6c9;
+      user-select: none;
+      cursor: crosshair;
+    }
+    .grid {
+      display: grid;
+      gap: 0;
+    }
+    .cell {
+      border: 1px solid rgba(0,0,0,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      transition: filter 0.08s;
+      cursor: crosshair;
+      overflow: hidden;
+    }
+    .cell:hover { filter: brightness(1.12); z-index: 2; }
+
+    /* Tile backgrounds */
+    .t-empty   { background: #dcedc8; }
+    .t-ground  { background: #8d6e63; }
+    .t-raised  {
+      background: #5d4037;
+      box-shadow: inset 0 0 0 3px #4e342e, inset 0 0 0 5px #8d6e63;
+    }
+    .t-potted  { background: #f57f17; }
+    .t-walkway {
+      background: repeating-linear-gradient(
+        45deg,
+        #bdbdbd 0px, #bdbdbd 5px,
+        #9e9e9e 5px, #9e9e9e 10px
+      );
+    }
+    .t-arch {
+      background: linear-gradient(180deg, #ce93d8 0%, #ba68c8 100%);
+    }
+    .t-arch::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 10%; right: 10%;
+      height: 55%;
+      border: 3px solid rgba(74,20,140,0.35);
+      border-bottom: none;
+      border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+      pointer-events: none;
+    }
+
+    /* Plant display */
+    .plant-origin {
+      font-size: 1.35rem;
+      line-height: 1;
+      pointer-events: none;
+      position: relative;
+      z-index: 1;
+    }
+    .plant-fill {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.35);
+      pointer-events: none;
+    }
+
+    /* Potted visual: little pot shape */
+    .t-potted::after {
+      content: '';
+      position: absolute;
+      bottom: 3px; left: 20%; right: 20%;
+      height: 35%;
+      background: #e65100;
+      border-radius: 3px 3px 6px 6px;
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    /* ── Plant Panel ── */
+    .plant-panel {
+      width: 195px;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .panel-header {
+      padding: 9px 11px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 700;
+      font-size: 0.82rem;
+      color: var(--primary-dark);
+      letter-spacing: 0.2px;
+    }
+    .panel-search { padding: 7px 8px; border-bottom: 1px solid var(--border); }
+    .panel-search input {
+      width: 100%;
+      padding: 6px 9px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      font-size: 0.79rem;
+      background: var(--surface2);
+      color: var(--text);
+      outline: none;
+    }
+    .panel-search input:focus { border-color: var(--primary-light); background: white; }
+    .plant-list { flex: 1; overflow-y: auto; padding: 5px; }
+    .plant-cat-label {
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.7px;
+      padding: 7px 4px 3px;
+      font-weight: 700;
+    }
+    .plant-chip {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 7px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.12s;
+      margin-bottom: 1px;
+    }
+    .plant-chip:hover { background: #f1f8e9; }
+    .plant-chip.selected { background: #dcedc8; border-color: var(--primary); }
+    .chip-emoji { font-size: 1.2rem; width: 24px; text-align: center; flex-shrink: 0; }
+    .chip-name { font-size: 0.79rem; font-weight: 500; line-height: 1.2; }
+    .chip-meta { font-size: 0.63rem; color: var(--text-muted); }
+    .panel-hint {
+      padding: 7px 9px;
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      text-align: center;
+      border-top: 1px solid var(--border);
+      background: #f9fbe7;
+    }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      backdrop-filter: blur(2px);
+    }
+    .modal {
+      background: white;
+      border-radius: 18px;
+      padding: 24px;
+      width: 390px;
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: 0 24px 70px rgba(0,0,0,0.3);
+    }
+    .modal-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .modal-emoji { font-size: 3.2rem; line-height: 1; flex-shrink: 0; }
+    .modal-title { flex: 1; }
+    .modal-title h2 { font-size: 1.35rem; color: var(--primary-dark); margin-bottom: 5px; }
+    .badge {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 99px;
+      font-size: 0.69rem;
+      font-weight: 600;
+      background: #e8f5e9;
+      color: var(--primary-dark);
+      margin-right: 4px;
+    }
+    .badge-custom { background: #fff3e0; color: #e65100; }
+    .modal-x {
+      background: #f5f5f5;
+      border: none;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: #757575;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .modal-x:hover { background: #eeeeee; color: #333; }
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .info-card {
+      background: var(--surface2);
+      border-radius: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+    }
+    .info-card .ic-label { font-size: 0.63rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 3px; font-weight: 600; }
+    .info-card .ic-val { font-size: 0.88rem; font-weight: 600; color: var(--text); }
+    .modal-text { font-size: 0.84rem; color: #555; line-height: 1.55; margin-bottom: 14px; }
+    .modal-companion { font-size: 0.82rem; margin-bottom: 14px; color: #444; }
+    .modal-companion strong { color: var(--primary-dark); }
+    .modal-actions { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 4px; border-top: 1px solid #eee; margin-top: 4px; }
+    .modal-actions .btn { padding: 8px 14px; }
+
+    /* ── Plant Manager ── */
+    .manager-body {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+    .mgr-list {
+      width: 280px;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .mgr-list-head {
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .mgr-list-head h2 { font-size: 0.9rem; font-weight: 700; }
+    .mgr-search { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    .mgr-search input {
+      width: 100%; padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.82rem;
+      outline: none;
+      background: var(--surface2);
+    }
+    .mgr-search input:focus { border-color: var(--primary-light); }
+    .mgr-items { flex: 1; overflow-y: auto; }
+    .mgr-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid #f0f0f0;
+      transition: background 0.1s;
+    }
+    .mgr-item:hover { background: var(--surface2); }
+    .mgr-item.active { background: #e8f5e9; }
+    .mgr-item-icon { font-size: 1.5rem; width: 32px; text-align: center; flex-shrink: 0; }
+    .mgr-item-info { flex: 1; min-width: 0; }
+    .mgr-item-name { font-size: 0.88rem; font-weight: 600; }
+    .mgr-item-meta { font-size: 0.72rem; color: var(--text-muted); }
+    .custom-tag {
+      font-size: 0.6rem;
+      background: #fff3e0;
+      color: #e65100;
+      padding: 1px 6px;
+      border-radius: 99px;
+      font-weight: 600;
+      margin-left: 5px;
+    }
+
+    /* Editor pane */
+    .mgr-editor {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 28px;
+      background: white;
+    }
+    .editor-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .editor-emoji-preview { font-size: 2.5rem; line-height: 1; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label {
+      display: block;
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-family: inherit;
+      background: var(--surface2);
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      border-color: var(--primary-light);
+      background: white;
+      box-shadow: 0 0 0 3px rgba(76,175,80,0.12);
+    }
+    .form-group textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+    .emoji-picker { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .emoji-opt {
+      width: 34px; height: 34px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 7px; cursor: pointer; font-size: 1.15rem;
+      border: 2px solid transparent;
+      background: var(--surface2);
+      transition: all 0.12s;
+    }
+    .emoji-opt:hover { border-color: var(--primary-light); background: #e8f5e9; }
+    .emoji-opt.sel { border-color: var(--primary); background: #c8e6c9; }
+    .form-actions {
+      display: flex; gap: 8px;
+      margin-top: 20px; padding-top: 16px;
+      border-top: 1px solid var(--border);
+      align-items: center;
+    }
+    .form-actions .spacer { flex: 1; }
+
+    /* Empty state */
+    .empty-pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      gap: 10px;
+      background: white;
+    }
+    .empty-pane .ei { font-size: 3.5rem; }
+    .empty-pane p { font-size: 0.88rem; }
+    .empty-pane .sub { font-size: 0.78rem; color: #aaa; }
+
+    /* ── Status bar ── */
+    .statusbar {
+      height: 26px;
+      background: #1a3a1c;
+      color: #81c784;
+      font-size: 0.7rem;
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      gap: 18px;
+      flex-shrink: 0;
+      letter-spacing: 0.2px;
+    }
+    .statusbar .sb-msg { color: #fff9c4; font-weight: 500; }
+    .statusbar .sb-right { margin-left: auto; color: #66bb6a; }
+
+    /* ── Scrollbars ── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #c5dfc8; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #a5d6a7; }
+
+    /* ── Transitions ── */
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body
+  x-data="gardenApp()"
+  x-init="init()"
+  @mouseup.window="isPainting = false"
+  x-cloak
+>
+
+  <!-- ══ HEADER ══ -->
+  <header>
+    <div class="logo">Patty<span>Plot</span></div>
+    <nav>
+      <button :class="{active: view==='planner'}" @click="view='planner'">🌱 Garden</button>
+      <button :class="{active: view==='plants'}" @click="switchToPlants()">🌿 Plants</button>
+    </nav>
+    <div class="header-right">
+      <template x-if="view==='planner'">
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-ghost btn-sm" @click="resizeGrid()">⚙ Grid</button>
+          <button class="btn btn-ghost btn-sm" @click="clearGarden()">🗑 Clear</button>
+        </div>
+      </template>
+      <template x-if="view==='plants'">
+        <button class="btn btn-ghost btn-sm" @click="newPlant()">+ New Plant</button>
+      </template>
+    </div>
+  </header>
+
+  <!-- ══ PLANNER VIEW ══ -->
+  <div class="app-body" x-show="view==='planner'">
+
+    <!-- Tool sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-label">Tools</div>
+      <button class="tool-btn" :class="{active:activeTool==='select'}" @click="setTool('select')" title="Select / Place Plant">
+        <span class="icon">↖️</span><span class="lbl">Select</span>
+      </button>
+      <button class="tool-btn" :class="{active:activeTool==='eraser'}" @click="setTool('eraser')" title="Erase tile">
+        <span class="icon">🧹</span><span class="lbl">Erase</span>
+      </button>
+
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-label">Tiles</div>
+
+      <button class="tool-btn" :class="{active:activeTool==='ground'}" @click="setTool('ground')" title="Ground plot" style="--icon-bg:#8d6e63">
+        <span class="icon">🟫</span><span class="lbl">Ground</span>
+      </button>
+      <button class="tool-btn" :class="{active:activeTool==='raised'}" @click="setTool('raised')" title="Raised bed" >
+        <span class="icon">🪵</span><span class="lbl">Raised</span>
+      </button>
+      <button class="tool-btn" :class="{active:activeTool==='potted'}" @click="setTool('potted')" title="Potted / container">
+        <span class="icon">🪴</span><span class="lbl">Potted</span>
+      </button>
+      <button class="tool-btn" :class="{active:activeTool==='walkway'}" @click="setTool('walkway')" title="Path / walkway">
+        <span class="icon">🚶</span><span class="lbl">Path</span>
+      </button>
+      <button class="tool-btn" :class="{active:activeTool==='arch'}" @click="setTool('arch')" title="Arch / trellis">
+        <span class="icon">🏛️</span><span class="lbl">Arch</span>
+      </button>
+
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-label">Zoom</div>
+      <button class="tool-btn" @click="cellSize = Math.min(cellSize+4, 60)" title="Zoom in">
+        <span class="icon">🔍</span><span class="lbl">In</span>
+      </button>
+      <button class="tool-btn" @click="cellSize = Math.max(cellSize-4, 26)" title="Zoom out">
+        <span class="icon">🔎</span><span class="lbl">Out</span>
+      </button>
+    </aside>
+
+    <!-- Grid -->
+    <main class="grid-area" @contextmenu.prevent>
+      <div class="grid-wrap">
+        <div
+          class="grid"
+          :style="`grid-template-columns: repeat(${gridCols}, ${cellSize}px); grid-template-rows: repeat(${gridRows}, ${cellSize}px);`"
+        >
+          <template x-for="(cell, idx) in cells" :key="idx">
+            <div
+              class="cell"
+              :class="tileClass(cell)"
+              :style="`width:${cellSize}px;height:${cellSize}px;`"
+              :title="cellTooltip(cell)"
+              @mousedown.prevent="onMouseDown(idx, $event)"
+              @mouseenter="onMouseEnter(idx)"
+              @click="onClick(idx)"
+            >
+              <!-- Plant emoji at origin cell -->
+              <span
+                class="plant-origin"
+                :style="`font-size:${Math.max(cellSize*0.55,14)}px`"
+                x-show="cell.plantId && cell.originIdx === idx"
+                x-text="plantEmoji(cell.plantId)"
+              ></span>
+              <!-- Occupied indicator for non-origin cells -->
+              <span class="plant-fill" x-show="cell.plantId && cell.originIdx !== idx"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+    </main>
+
+    <!-- Plant palette -->
+    <aside class="plant-panel">
+      <div class="panel-header">🌿 Plant Palette</div>
+      <div class="panel-search">
+        <input type="text" placeholder="Search plants…" x-model="paletteQ" @input="paletteQ=$el.value">
+      </div>
+      <div class="plant-list">
+        <template x-for="cat in categories" :key="cat">
+          <div x-show="plantsForCat(cat).length > 0">
+            <div class="plant-cat-label" x-text="cat"></div>
+            <template x-for="p in plantsForCat(cat)" :key="p.id">
+              <div
+                class="plant-chip"
+                :class="{selected: selectedPlant===p.id}"
+                @click="toggleSelect(p.id)"
+              >
+                <span class="chip-emoji" x-text="p.emoji"></span>
+                <div>
+                  <div class="chip-name" x-text="p.name"></div>
+                  <div class="chip-meta" x-text="p.size + ' · ' + p.sunlight"></div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+        <div x-show="plants.filter(p=>p.name.toLowerCase().includes(paletteQ.toLowerCase())).length===0" style="padding:16px;text-align:center;color:var(--text-muted);font-size:0.8rem;">
+          No plants match "{{paletteQ}}"
+        </div>
+      </div>
+      <div class="panel-hint" x-show="selectedPlant">
+        Click a tile to place · click again to deselect
+      </div>
+      <div class="panel-hint" x-show="!selectedPlant" style="color:#bbb;">
+        Select a plant above, then click the garden
+      </div>
+    </aside>
+  </div>
+
+  <!-- ══ PLANTS MANAGER VIEW ══ -->
+  <div class="app-body" x-show="view==='plants'">
+    <div class="manager-body">
+
+      <!-- Plant list -->
+      <div class="mgr-list">
+        <div class="mgr-list-head">
+          <h2>All Plants (<span x-text="plants.length"></span>)</h2>
+          <button class="btn btn-primary btn-sm" @click="newPlant()">+ New</button>
+        </div>
+        <div class="mgr-search">
+          <input type="text" placeholder="Filter…" x-model="plantQ">
+        </div>
+        <div class="mgr-items">
+          <template x-for="cat in categories" :key="cat">
+            <div x-show="mgr_plantsForCat(cat).length > 0">
+              <div style="font-size:0.6rem;text-transform:uppercase;color:var(--text-muted);padding:8px 14px 3px;font-weight:700;letter-spacing:0.6px;background:#fafafa;border-bottom:1px solid #f0f0f0;" x-text="cat"></div>
+              <template x-for="p in mgr_plantsForCat(cat)" :key="p.id">
+                <div
+                  class="mgr-item"
+                  :class="{active: edPlant && edPlant.id===p.id}"
+                  @click="editPlant(p)"
+                >
+                  <div class="mgr-item-icon" x-text="p.emoji"></div>
+                  <div class="mgr-item-info">
+                    <div class="mgr-item-name">
+                      <span x-text="p.name"></span>
+                      <span class="custom-tag" x-show="p.custom">custom</span>
+                    </div>
+                    <div class="mgr-item-meta" x-text="p.size + ' · ' + p.sunlight"></div>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Editor pane -->
+      <template x-if="edPlant">
+        <div class="mgr-editor">
+          <div class="editor-title">
+            <span class="editor-emoji-preview" x-text="edPlant.emoji"></span>
+            <span x-text="edPlant.id ? 'Edit Plant' : 'New Plant'"></span>
+          </div>
+
+          <!-- Emoji picker -->
+          <div class="form-group">
+            <label>Icon / Emoji</label>
+            <div class="emoji-picker">
+              <template x-for="e in emojiOptions" :key="e">
+                <div class="emoji-opt" :class="{sel:edPlant.emoji===e}" @click="edPlant.emoji=e" x-text="e"></div>
+              </template>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Name *</label>
+              <input type="text" x-model="edPlant.name" placeholder="e.g. Cherry Tomato">
+            </div>
+            <div class="form-group">
+              <label>Category</label>
+              <select x-model="edPlant.category">
+                <template x-for="c in categories" :key="c">
+                  <option :value="c" x-text="c"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Grid Size</label>
+              <select x-model="edPlant.size">
+                <option>1×1</option>
+                <option>1×2</option>
+                <option>2×1</option>
+                <option>2×2</option>
+                <option>1×3</option>
+                <option>3×1</option>
+                <option>2×3</option>
+                <option>3×2</option>
+                <option>3×3</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Season</label>
+              <select x-model="edPlant.season">
+                <option>Cool Season</option>
+                <option>Warm Season</option>
+                <option>All Season</option>
+                <option>Perennial</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Sunlight</label>
+              <select x-model="edPlant.sunlight">
+                <option>Full Sun</option>
+                <option>Partial Sun</option>
+                <option>Full Shade</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Water Needs</label>
+              <select x-model="edPlant.water">
+                <option>Low</option>
+                <option>Medium</option>
+                <option>High</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Spacing</label>
+              <input type="text" x-model="edPlant.spacing" placeholder="e.g. 18 inches">
+            </div>
+            <div class="form-group">
+              <label>Days to Harvest</label>
+              <input type="text" x-model="edPlant.days" placeholder="e.g. 70–85">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Companion Plants</label>
+            <input type="text" x-model="edPlant.companions" placeholder="e.g. Basil, Marigold">
+          </div>
+
+          <div class="form-group">
+            <label>Description / Notes</label>
+            <textarea x-model="edPlant.description" placeholder="Growing tips, notes, care instructions…"></textarea>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn btn-primary" @click="savePlant()">💾 Save</button>
+            <button class="btn btn-outline" @click="edPlant=null">Cancel</button>
+            <div class="spacer"></div>
+            <button class="btn btn-danger" x-show="edPlant.id" @click="deletePlant(edPlant.id)">🗑 Delete</button>
+          </div>
+        </div>
+      </template>
+
+      <template x-if="!edPlant">
+        <div class="empty-pane">
+          <div class="ei">🌱</div>
+          <p>Select a plant to edit</p>
+          <p class="sub">or click <strong>+ New</strong> to create a custom plant</p>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- ══ PLANT INFO MODAL ══ -->
+  <div
+    class="modal-overlay"
+    x-show="showModal"
+    x-transition:enter="transition ease-out duration-150"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition ease-in duration-100"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    @click.self="showModal=false"
+  >
+    <div
+      class="modal"
+      x-show="showModal"
+      x-transition:enter="transition ease-out duration-150"
+      x-transition:enter-start="opacity-0 scale-95"
+      x-transition:enter-end="opacity-100 scale-100"
+      @click.stop
+    >
+      <template x-if="modalPlant">
+        <div>
+          <div class="modal-head">
+            <div class="modal-emoji" x-text="modalPlant.emoji"></div>
+            <div class="modal-title">
+              <h2 x-text="modalPlant.name"></h2>
+              <span class="badge" x-text="modalPlant.category"></span>
+              <span class="badge badge-custom" x-show="modalPlant.custom">custom</span>
+            </div>
+            <button class="modal-x" @click="showModal=false">✕</button>
+          </div>
+
+          <div class="info-grid">
+            <div class="info-card">
+              <div class="ic-label">☀️ Sunlight</div>
+              <div class="ic-val" x-text="modalPlant.sunlight"></div>
+            </div>
+            <div class="info-card">
+              <div class="ic-label">💧 Water</div>
+              <div class="ic-val" x-text="modalPlant.water"></div>
+            </div>
+            <div class="info-card">
+              <div class="ic-label">📐 Grid Size</div>
+              <div class="ic-val" x-text="modalPlant.size"></div>
+            </div>
+            <div class="info-card">
+              <div class="ic-label">🌡️ Season</div>
+              <div class="ic-val" x-text="modalPlant.season"></div>
+            </div>
+            <template x-if="modalPlant.spacing">
+              <div class="info-card">
+                <div class="ic-label">↔️ Spacing</div>
+                <div class="ic-val" x-text="modalPlant.spacing"></div>
+              </div>
+            </template>
+            <template x-if="modalPlant.days">
+              <div class="info-card">
+                <div class="ic-label">📅 Days to Harvest</div>
+                <div class="ic-val" x-text="modalPlant.days"></div>
+              </div>
+            </template>
+          </div>
+
+          <template x-if="modalPlant.companions">
+            <p class="modal-companion"><strong>🤝 Companions:</strong> <span x-text="modalPlant.companions"></span></p>
+          </template>
+
+          <template x-if="modalPlant.description">
+            <p class="modal-text" x-text="modalPlant.description"></p>
+          </template>
+
+          <div class="modal-actions">
+            <button class="btn btn-primary" @click="editFromModal()">✏️ Edit Plant</button>
+            <button class="btn btn-danger" @click="removePlantFromGarden(modalOriginIdx); showModal=false">Remove from Garden</button>
+            <button class="btn btn-outline" @click="showModal=false">Close</button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- ══ STATUS BAR ══ -->
+  <div class="statusbar">
+    <span x-text="`${gridRows}×${gridCols} grid`"></span>
+    <span x-text="toolLabels[activeTool] || activeTool"></span>
+    <span x-show="selectedPlant" x-text="'Placing: ' + (getPlant(selectedPlant)?.name || '')"></span>
+    <span class="sb-msg" x-show="statusMsg" x-text="statusMsg"></span>
+    <span class="sb-right" x-text="`${plants.length} plants · ${placedCount} placed`"></span>
+  </div>
+
+  <script>
+  function gardenApp() {
+    return {
+
+      /* ── State ── */
+      view: 'planner',
+      gridRows: 18,
+      gridCols: 22,
+      cellSize: 42,
+      cells: [],
+      activeTool: 'select',
+      isPainting: false,
+      selectedPlant: null,
+      paletteQ: '',
+      plants: [],
+      plantQ: '',
+      edPlant: null,
+      showModal: false,
+      modalPlant: null,
+      modalOriginIdx: null,
+      statusMsg: '',
+      _statusTimer: null,
+
+      categories: ['Vegetables','Fruits','Herbs','Flowers','Trees & Shrubs','Other'],
+
+      toolLabels: {
+        select: 'Tool: Select',
+        eraser: 'Tool: Eraser',
+        ground: 'Tool: Ground',
+        raised: 'Tool: Raised Bed',
+        potted: 'Tool: Potted',
+        walkway: 'Tool: Walkway',
+        arch:   'Tool: Arch/Trellis',
+      },
+
+      emojiOptions: [
+        '🌱','🍅','🫑','🥒','🌽','🥕','🥬','🥦','🧄','🧅','🥔','🍆','🫛','🌿',
+        '🍓','🫐','🍋','🍎','🍐','🍇','🍉','🌻','🌸','🌹','🌺','🌼','💐','🌾',
+        '🍀','☘️','🌲','🌳','🌴','🪴','🍄','🌰','🎃','💜','🟫','🪵',
+      ],
+
+      /* ── Init ── */
+      init() {
+        this.loadStorage();
+        if (this.cells.length !== this.gridRows * this.gridCols) this.resetGrid();
+        if (!this.plants.length) this.plants = this.defaultPlants();
+        this.persist();
+      },
+
+      resetGrid() {
+        this.cells = Array.from({ length: this.gridRows * this.gridCols }, () => ({
+          tileType: 'empty',
+          plantId: null,
+          originIdx: null,
+        }));
+      },
+
+      /* ── Grid helpers ── */
+      row(idx) { return Math.floor(idx / this.gridCols); },
+      col(idx) { return idx % this.gridCols; },
+      idx(r, c) { return r * this.gridCols + c; },
+
+      tileClass(cell) {
+        const map = {
+          empty: 't-empty',
+          ground: 't-ground',
+          raised: 't-raised',
+          potted: 't-potted',
+          walkway: 't-walkway',
+          arch: 't-arch',
+        };
+        return map[cell.tileType] || 't-empty';
+      },
+
+      cellTooltip(cell) {
+        if (cell.plantId) return this.getPlant(cell.plantId)?.name || '';
+        const labels = { empty:'Empty', ground:'Ground', raised:'Raised Bed', potted:'Potted', walkway:'Walkway', arch:'Arch' };
+        return labels[cell.tileType] || '';
+      },
+
+      plantEmoji(id) {
+        return this.getPlant(id)?.emoji || '🌱';
+      },
+
+      /* ── Tool interaction ── */
+      setTool(t) {
+        this.activeTool = t;
+        if (t !== 'select') this.selectedPlant = null;
+      },
+
+      toggleSelect(id) {
+        this.selectedPlant = this.selectedPlant === id ? null : id;
+        if (this.selectedPlant) this.activeTool = 'select';
+      },
+
+      onMouseDown(idx, event) {
+        if (event.button === 2) { this.eraseAt(idx); return; }
+        this.isPainting = true;
+        if (this.activeTool !== 'select') this.applyTile(idx);
+      },
+
+      onMouseEnter(idx) {
+        if (!this.isPainting) return;
+        if (this.activeTool !== 'select') this.applyTile(idx);
+      },
+
+      onClick(idx) {
+        if (this.activeTool === 'select') {
+          if (this.selectedPlant) {
+            this.placePlant(idx);
+          } else {
+            this.openModal(idx);
+          }
+        }
+      },
+
+      applyTile(idx) {
+        if (this.activeTool === 'eraser') { this.eraseAt(idx); return; }
+        const cell = this.cells[idx];
+        if (cell.plantId) this.removePlantCells(idx);
+        cell.tileType = this.activeTool;
+        this.persist();
+      },
+
+      eraseAt(idx) {
+        const cell = this.cells[idx];
+        if (cell.plantId) this.removePlantCells(idx);
+        cell.tileType = 'empty';
+        this.persist();
+      },
+
+      /* ── Plant placement ── */
+      placePlant(idx) {
+        const plant = this.getPlant(this.selectedPlant);
+        if (!plant) return;
+        const [sr, sc] = plant.size.split('×').map(Number);
+        const r0 = this.row(idx), c0 = this.col(idx);
+
+        if (r0 + sr > this.gridRows || c0 + sc > this.gridCols) {
+          this.flash('⚠ Plant would go out of bounds'); return;
+        }
+        for (let r = r0; r < r0 + sr; r++) {
+          for (let c = c0; c < c0 + sc; c++) {
+            const cell = this.cells[this.idx(r,c)];
+            if (cell.tileType === 'empty') { this.flash('⚠ Paint a tile first (ground, raised, potted, or arch)'); return; }
+            if (cell.tileType === 'walkway') { this.flash('⚠ Cannot plant on walkways'); return; }
+            if (cell.plantId) { this.flash('⚠ A plant already occupies that space'); return; }
+          }
+        }
+        for (let r = r0; r < r0 + sr; r++) {
+          for (let c = c0; c < c0 + sc; c++) {
+            const i = this.idx(r,c);
+            this.cells[i].plantId = plant.id;
+            this.cells[i].originIdx = idx;
+          }
+        }
+        this.persist();
+        this.flash(`✓ Placed ${plant.emoji} ${plant.name}`);
+      },
+
+      removePlantCells(anyIdx) {
+        const cell = this.cells[anyIdx];
+        if (!cell.plantId) return;
+        const plant = this.getPlant(cell.plantId);
+        const originIdx = cell.originIdx ?? anyIdx;
+        const [sr, sc] = (plant?.size || '1×1').split('×').map(Number);
+        const r0 = this.row(originIdx), c0 = this.col(originIdx);
+        for (let r = r0; r < r0 + sr; r++) {
+          for (let c = c0; c < c0 + sc; c++) {
+            const i = this.idx(r,c);
+            if (i < this.cells.length) {
+              this.cells[i].plantId = null;
+              this.cells[i].originIdx = null;
+            }
+          }
+        }
+      },
+
+      removePlantFromGarden(idx) {
+        this.removePlantCells(idx);
+        this.persist();
+        this.flash('Plant removed from garden');
+      },
+
+      /* ── Modal ── */
+      openModal(idx) {
+        const cell = this.cells[idx];
+        if (!cell.plantId) return;
+        const originIdx = cell.originIdx ?? idx;
+        this.modalPlant = this.getPlant(this.cells[originIdx].plantId);
+        this.modalOriginIdx = originIdx;
+        this.showModal = true;
+      },
+
+      editFromModal() {
+        this.showModal = false;
+        this.editPlant(this.modalPlant);
+        this.view = 'plants';
+      },
+
+      /* ── Plants manager ── */
+      switchToPlants() {
+        this.view = 'plants';
+        this.edPlant = null;
+      },
+
+      newPlant() {
+        this.edPlant = {
+          id: null,
+          name: '',
+          emoji: '🌱',
+          category: 'Vegetables',
+          size: '1×1',
+          sunlight: 'Full Sun',
+          water: 'Medium',
+          season: 'Warm Season',
+          spacing: '',
+          days: '',
+          companions: '',
+          description: '',
+          custom: true,
+        };
+        this.view = 'plants';
+      },
+
+      editPlant(p) {
+        this.edPlant = { ...p };
+      },
+
+      savePlant() {
+        if (!this.edPlant.name.trim()) { this.flash('⚠ Name is required'); return; }
+        if (!this.edPlant.id) {
+          this.edPlant.id = 'custom_' + Date.now();
+          this.edPlant.custom = true;
+          this.plants.push({ ...this.edPlant });
+        } else {
+          const i = this.plants.findIndex(p => p.id === this.edPlant.id);
+          if (i !== -1) this.plants[i] = { ...this.edPlant };
+        }
+        this.edPlant = null;
+        this.persist();
+        this.flash('✓ Plant saved');
+      },
+
+      deletePlant(id) {
+        if (!confirm('Delete this plant? It will also be removed from the garden.')) return;
+        this.cells.forEach(c => { if (c.plantId === id) { c.plantId = null; c.originIdx = null; } });
+        this.plants = this.plants.filter(p => p.id !== id);
+        this.edPlant = null;
+        this.persist();
+      },
+
+      /* ── Filtering ── */
+      getPlant(id) { return this.plants.find(p => p.id === id) || null; },
+
+      plantsForCat(cat) {
+        const q = this.paletteQ.toLowerCase();
+        return this.plants.filter(p => p.category === cat && (!q || p.name.toLowerCase().includes(q)));
+      },
+
+      mgr_plantsForCat(cat) {
+        const q = this.plantQ.toLowerCase();
+        return this.plants.filter(p => p.category === cat && (!q || p.name.toLowerCase().includes(q)));
+      },
+
+      /* ── Computed ── */
+      get placedCount() {
+        let n = 0;
+        for (let i = 0; i < this.cells.length; i++) {
+          if (this.cells[i].plantId && this.cells[i].originIdx === i) n++;
+        }
+        return n;
+      },
+
+      /* ── Garden controls ── */
+      clearGarden() {
+        if (!confirm('Clear all tiles and plants from the garden?')) return;
+        this.resetGrid();
+        this.persist();
+        this.flash('Garden cleared');
+      },
+
+      resizeGrid() {
+        const r = parseInt(prompt(`Rows (current: ${this.gridRows}, 5–50):`, this.gridRows));
+        if (isNaN(r) || r < 5 || r > 50) return;
+        const c = parseInt(prompt(`Columns (current: ${this.gridCols}, 5–60):`, this.gridCols));
+        if (isNaN(c) || c < 5 || c > 60) return;
+        this.gridRows = r;
+        this.gridCols = c;
+        this.resetGrid();
+        this.persist();
+        this.flash(`Grid resized to ${r}×${c}`);
+      },
+
+      /* ── Persistence ── */
+      persist() {
+        try {
+          localStorage.setItem('pp_cells', JSON.stringify(this.cells));
+          localStorage.setItem('pp_plants', JSON.stringify(this.plants));
+          localStorage.setItem('pp_grid', JSON.stringify({ rows: this.gridRows, cols: this.gridCols }));
+        } catch(e) { console.warn('Storage failed', e); }
+      },
+
+      loadStorage() {
+        try {
+          const g = JSON.parse(localStorage.getItem('pp_grid') || 'null');
+          if (g && g.rows >= 5 && g.cols >= 5) { this.gridRows = g.rows; this.gridCols = g.cols; }
+          const c = JSON.parse(localStorage.getItem('pp_cells') || 'null');
+          if (Array.isArray(c)) this.cells = c;
+          const p = JSON.parse(localStorage.getItem('pp_plants') || 'null');
+          if (Array.isArray(p) && p.length) this.plants = p;
+        } catch(e) {}
+      },
+
+      /* ── Flash message ── */
+      flash(msg) {
+        this.statusMsg = msg;
+        clearTimeout(this._statusTimer);
+        this._statusTimer = setTimeout(() => { this.statusMsg = ''; }, 2800);
+      },
+
+      /* ── Default plant data ── */
+      defaultPlants() {
+        return [
+          // ── Vegetables ──
+          { id:'tomato',       name:'Tomato',          emoji:'🍅', category:'Vegetables',    size:'1×1', sunlight:'Full Sun',     water:'Medium', season:'Warm Season',  spacing:'24 in', days:'70–85',  companions:'Basil, Marigold, Carrot',       description:'Stake or cage for support. Water consistently to prevent blossom end rot. Pinch suckers for larger fruit.', custom:false },
+          { id:'cherry_tom',   name:'Cherry Tomato',   emoji:'🍅', category:'Vegetables',    size:'1×1', sunlight:'Full Sun',     water:'Medium', season:'Warm Season',  spacing:'18 in', days:'55–65',  companions:'Basil, Parsley',                description:'Prolific producer. Indeterminate types need caging. Great for snacking and salads.', custom:false },
+          { id:'pepper',       name:'Bell Pepper',     emoji:'🫑', category:'Vegetables',    size:'1×1', sunlight:'Full Sun',     water:'Medium', season:'Warm Season',  spacing:'18 in', days:'70–90',  companions:'Tomato, Basil, Spinach',        description:'Sweet when ripened to red, yellow, or orange. Warm soil is key to a good start.', custom:false },
+          { id:'hot_pepper',   name:'Hot Pepper',      emoji:'🌶️', category:'Vegetables',    size:'1×1', sunlight:'Full Sun',     water:'Low',    season:'Warm Season',  spacing:'15 in', days:'70–85',  companions:'Carrot, Parsley',               description:'Heat intensifies in dry conditions. Harvest regularly to promote more production.', custom:false },
+          { id:'cucumber',     name:'Cucumber',        emoji:'🥒', category:'Vegetables',    size:'1×2', sunlight:'Full Sun',     water:'High',   season:'Warm Season',  spacing:'12 in', days:'50–70',  companions:'Dill, Sunflower, Beans',        description:'Vining plant that thrives on a trellis. Harvest frequently — letting one yellow stops production.', custom:false },
+          { id:'zucchini',     name:'Zucchini',        emoji:'🥒', category:'Vegetables',    size:'2×2', sunlight:'Full Sun',     water:'High',   season:'Warm Season',  spacing:'36 in', days:'50–65',  companions:'Nasturtium, Beans',             description:'Large plant. Harvest at 6–8" for best flavor. Check daily; they hide under leaves.', custom:false },
+          { id:'pumpkin',      name:'Pumpkin',         emoji:'🎃', category:'Vegetables',    size:'3×3', sunlight:'Full Sun',     water:'Medium', season:'Warm Season',  spacing:'48 in', days:'90–120', companions:'Corn, Beans, Nasturtium',       description:'Space-hungry vine. Use a sling to support large fruits on a trellis. Plant on a hill for drainage.', custom:false },
+          { id:'corn',         name:'Corn',             emoji:'🌽', category:'Vegetables',    size:'1×1', sunlight:'Full Sun',     water:'Medium', season:'Warm Season',  spacing:'12 in', days:'60–100', companions:'Beans, Squash, Sunflower',      description:'Plant in blocks (not single rows) for good wind pollination. The "Three Sisters" trio with beans and squash.', custom:false },
+          { id:'lettuce',      name:'Lettuce',          emoji:'🥬', category:'Vegetables',    size:'1×1', sunlight:'Partial Sun',  water:'Medium', season:'Cool Season',  spacing:'8 in',  days:'30–60',  companions:'Carrot, Radish, Strawberry',    description:'Cut-and-come-again harvesting extends the season. Bolts in heat — shade with taller plants.', custom:false },
+          { id:'carrot',       name:'Carrot',           emoji:'🥕', category:'Vegetables',    size:'1×1', sunlight:'Full Sun',     water:'Medium', season:'Cool Season',  spacing:'3 in',  days:'70–80',  companions:'Lettuce, Sage, Tomato',         description:'Needs loose, deep, rock-free soil. Thin to 3" apart after germination. Mulch to keep roots cool.', custom:false },
+          { id:'kale',         name:'Kale',             emoji:'🥦', category:'Vegetables',    size:'1×1', sunlight:'Full Sun',     water:'Medium', season:'Cool Season',  spacing:'18 in', days:'55–75',  companions:'Beets, Celery, Herbs',          description:'Super hardy and frost-tolerant. Flavor improves after a frost. Harvest outer leaves first.', custom:false },
+          { id:'broccoli',     name:'Broccoli',         emoji:'🥦', category:'Vegetables',    size:'1×1', sunlight:'Full Sun',     water:'Medium', season:'Cool Season',  spacing:'18 in', days:'80–100', companions:'Celery, Rosemary, Onion',       description:'Harvest the central head before buds open to yellow flowers. Side shoots will continue producing.', custom:false },
+          { id:'potato',       name:'Potato',           emoji:'🥔', category:'Vegetables',    size:'1×1', sunlight:'Full Sun',     water:'Medium', season:'Cool Season',  spacing:'12 in', days:'70–120', companions:'Beans, Horseradish, Marigold',  description:'Hill up soil as plant grows. Keep tubers covered to prevent greening. Harvest after tops die back.', custom:false },
+          { id:'garlic',       name:'Garlic',           emoji:'🧄', category:'Vegetables',    size:'1×1', sunlight:'Full Sun',     water:'Low',    season:'Cool Season',  spacing:'6 in',  days:'240',    companions:'Roses, Tomato, Fruit trees',    description:'Plant cloves in fall for summer harvest. Remove scapes in spring to improve bulb size.', custom:false },
+          { id:'onion',        name:'Onion',            emoji:'🧅', category:'Vegetables',    size:'1×1', sunlight:'Full Sun',     water:'Low',    season:'Cool Season',  spacing:'4 in',  days:'100–175',companions:'Carrot, Tomato, Chamomile',     description:'Start from sets for the fastest results. Fold tops over when they fall to cure bulbs.', custom:false },
+          { id:'beans',        name:'Green Beans',      emoji:'🫛', category:'Vegetables',    size:'1×1', sunlight:'Full Sun',     water:'Medium', season:'Warm Season',  spacing:'6 in',  days:'50–60',  companions:'Carrot, Squash, Strawberry',    description:'Bush varieties are compact and no-stake. Pole beans need a trellis but produce longer and yield more.', custom:false },
+          { id:'eggplant',     name:'Eggplant',         emoji:'🍆', category:'Vegetables',    size:'1×1', sunlight:'Full Sun',     water:'Medium', season:'Warm Season',  spacing:'24 in', days:'65–80',  companions:'Pepper, Tomato, Tarragon',      description:'Heat-loving and sensitive to frost. Harvest while skin is still glossy and firm.', custom:false },
+          { id:'spinach',      name:'Spinach',          emoji:'🥬', category:'Vegetables',    size:'1×1', sunlight:'Partial Sun',  water:'Medium', season:'Cool Season',  spacing:'6 in',  days:'40–50',  companions:'Strawberry, Peas, Cauliflower', description:'Quick-growing cool weather crop. Bolts to seed in heat. Best in spring and fall.', custom:false },
+
+          // ── Fruits ──
+          { id:'strawberry',   name:'Strawberry',       emoji:'🍓', category:'Fruits',        size:'1×1', sunlight:'Full Sun',     water:'Medium', season:'Cool Season',  spacing:'12 in', days:'30',     companions:'Thyme, Borage, Lettuce',        description:'Remove runners in the first year to build strong crowns. Mulch to suppress weeds and keep berries clean.', custom:false },
+          { id:'watermelon',   name:'Watermelon',       emoji:'🍉', category:'Fruits',        size:'2×3', sunlight:'Full Sun',     water:'Medium', season:'Warm Season',  spacing:'36 in', days:'80–95',  companions:'Nasturtium, Corn, Lavender',    description:'Needs lots of space and long warm summers. Thumping gives a hollow sound when ripe.', custom:false },
+          { id:'cantaloupe',   name:'Cantaloupe',       emoji:'🍈', category:'Fruits',        size:'2×2', sunlight:'Full Sun',     water:'Medium', season:'Warm Season',  spacing:'24 in', days:'75–90',  companions:'Corn, Sunflower',               description:'Slip easily from the vine when ripe. Grow on a trellis with a sling for support.', custom:false },
+          { id:'blueberry',    name:'Blueberry',        emoji:'🫐', category:'Fruits',        size:'2×2', sunlight:'Full Sun',     water:'Medium', season:'Perennial',    spacing:'48 in', days:'60–90',  companions:'Acid-loving shrubs, Pine',      description:'Needs acidic soil (pH 4.5–5.5). Plant two different varieties for cross-pollination and better yield.', custom:false },
+          { id:'raspberry',    name:'Raspberry',        emoji:'🫐', category:'Fruits',        size:'1×2', sunlight:'Full Sun',     water:'Medium', season:'Perennial',    spacing:'24 in', days:'70',     companions:'Garlic, Tansy, Rue',            description:'Prune out old floricanes after they fruit. Everbearing types produce on new canes in fall.', custom:false },
+
+          // ── Herbs ──
+          { id:'basil',        name:'Basil',            emoji:'🌿', category:'Herbs',         size:'1×1', sunlight:'Full Sun',     water:'Medium', season:'Warm Season',  spacing:'12 in', days:'25',     companions:'Tomato, Pepper, Asparagus',     description:'Pinch flower buds to extend leaf production. Essential tomato companion — improves flavor and repels pests.', custom:false },
+          { id:'mint',         name:'Mint',             emoji:'🌿', category:'Herbs',         size:'1×1', sunlight:'Partial Sun',  water:'High',   season:'Perennial',    spacing:'24 in', days:'30',     companions:'Cabbage, Peas, Tomato',         description:'Invasive — grow in a buried container. Repels aphids, ants, and flea beetles.', custom:false },
+          { id:'rosemary',     name:'Rosemary',         emoji:'🌿', category:'Herbs',         size:'1×1', sunlight:'Full Sun',     water:'Low',    season:'Perennial',    spacing:'24 in', days:'60',     companions:'Beans, Cabbage, Carrots',       description:'Drought-tolerant once established. Excellent bee attractor. Protect from hard freezes in cold climates.', custom:false },
+          { id:'lavender',     name:'Lavender',         emoji:'💜', category:'Herbs',         size:'1×1', sunlight:'Full Sun',     water:'Low',    season:'Perennial',    spacing:'24 in', days:'90',     companions:'Roses, Most vegetables',        description:'Incredibly drought-tolerant. Attracts bees and butterflies. Dried flowers last for months.', custom:false },
+          { id:'thyme',        name:'Thyme',            emoji:'🌿', category:'Herbs',         size:'1×1', sunlight:'Full Sun',     water:'Low',    season:'Perennial',    spacing:'12 in', days:'28',     companions:'Strawberry, Brassicas, Eggplant',description:'Low-growing, great as a border or ground cover. Trim after flowering to keep from getting woody.', custom:false },
+          { id:'sage',         name:'Sage',             emoji:'🌿', category:'Herbs',         size:'1×1', sunlight:'Full Sun',     water:'Low',    season:'Perennial',    spacing:'24 in', days:'75',     companions:'Rosemary, Cabbage, Beans',      description:'Woody perennial. Prune aggressively in spring. Repels cabbage moths and carrot fly.', custom:false },
+          { id:'cilantro',     name:'Cilantro',         emoji:'🌿', category:'Herbs',         size:'1×1', sunlight:'Partial Sun',  water:'Medium', season:'Cool Season',  spacing:'8 in',  days:'45',     companions:'Spinach, Dill, Anise',          description:'Bolts quickly in heat. Succession-plant every 2–3 weeks for continuous harvest. Coriander seeds are also useful.', custom:false },
+          { id:'dill',         name:'Dill',             emoji:'🌿', category:'Herbs',         size:'1×1', sunlight:'Full Sun',     water:'Low',    season:'Cool Season',  spacing:'12 in', days:'40',     companions:'Cabbage, Cucumber, Onion',      description:'Host plant for swallowtail butterfly caterpillars. Keep away from fennel — they cross-pollinate and lose flavor.', custom:false },
+          { id:'chives',       name:'Chives',           emoji:'🌿', category:'Herbs',         size:'1×1', sunlight:'Full Sun',     water:'Low',    season:'Perennial',    spacing:'8 in',  days:'30',     companions:'Carrot, Tomato, Rose',          description:'Edible purple flowers. Repels aphids when planted near roses or in the vegetable garden.', custom:false },
+          { id:'parsley',      name:'Parsley',          emoji:'🌿', category:'Herbs',         size:'1×1', sunlight:'Partial Sun',  water:'Medium', season:'Cool Season',  spacing:'8 in',  days:'70',     companions:'Tomato, Asparagus, Carrot',     description:'Biennial — flowers and sets seed in its second year. Soak seeds before planting to speed germination.', custom:false },
+
+          // ── Flowers ──
+          { id:'sunflower',    name:'Sunflower',        emoji:'🌻', category:'Flowers',       size:'1×1', sunlight:'Full Sun',     water:'Low',    season:'Warm Season',  spacing:'24 in', days:'80–120', companions:'Cucumber, Squash, Tomato',      description:'Attracts pollinators and beneficial insects. Seeds beloved by birds. Provides support for climbers.', custom:false },
+          { id:'marigold',     name:'Marigold',         emoji:'🌼', category:'Flowers',       size:'1×1', sunlight:'Full Sun',     water:'Low',    season:'Warm Season',  spacing:'10 in', days:'50',     companions:'Tomato, Pepper, Almost anything',description:'The ultimate companion flower. Repels nematodes, aphids, and whiteflies. Plant throughout the garden.', custom:false },
+          { id:'nasturtium',   name:'Nasturtium',       emoji:'🌸', category:'Flowers',       size:'1×1', sunlight:'Full Sun',     water:'Low',    season:'Warm Season',  spacing:'10 in', days:'35–52',  companions:'Cucumber, Squash, Radish',      description:'Edible flowers and peppery leaves. Excellent trap crop for aphids — draws them away from vegetables.', custom:false },
+          { id:'zinnia',       name:'Zinnia',           emoji:'🌺', category:'Flowers',       size:'1×1', sunlight:'Full Sun',     water:'Low',    season:'Warm Season',  spacing:'12 in', days:'60',     companions:'Tomato, Pepper, Cucumbers',     description:'Long blooming cut flower. Deadhead regularly for non-stop color. Great for attracting butterflies.', custom:false },
+          { id:'borage',       name:'Borage',           emoji:'💙', category:'Flowers',       size:'1×1', sunlight:'Full Sun',     water:'Low',    season:'Warm Season',  spacing:'12 in', days:'50',     companions:'Strawberry, Tomato, Squash',    description:'Edible blue star-shaped flowers. Excellent bee magnet and deters tomato hornworm.', custom:false },
+          { id:'calendula',    name:'Calendula',        emoji:'🌼', category:'Flowers',       size:'1×1', sunlight:'Full Sun',     water:'Low',    season:'Cool Season',  spacing:'9 in',  days:'45–60',  companions:'Tomato, Carrot, Asparagus',     description:'Medicinal and edible. Repels aphids and attracts beneficial insects. Self-seeds freely.', custom:false },
+
+          // ── Trees & Shrubs ──
+          { id:'apple',        name:'Apple Tree',       emoji:'🍎', category:'Trees & Shrubs',size:'3×3', sunlight:'Full Sun',     water:'Medium', season:'Perennial',    spacing:'120 in',days:'Seasonal',companions:'Marigold, Nasturtium, Chive',   description:'Needs cross-pollination from a second variety. Dwarf rootstocks work well in small spaces and containers.', custom:false },
+          { id:'lemon',        name:'Lemon Tree',       emoji:'🍋', category:'Trees & Shrubs',size:'2×2', sunlight:'Full Sun',     water:'Medium', season:'Perennial',    spacing:'96 in', days:'Seasonal',companions:'Lavender, Marigold, Basil',     description:'Not frost-hardy below 25°F. Bring indoors in winter in cold climates. Excellent in large containers.', custom:false },
+          { id:'fig',          name:'Fig Tree',         emoji:'🌳', category:'Trees & Shrubs',size:'2×2', sunlight:'Full Sun',     water:'Low',    season:'Perennial',    spacing:'96 in', days:'Seasonal',companions:'Rue, Chamomile',               description:'Drought-tolerant once established. Can be grown in containers. Prune in late winter.', custom:false },
+          { id:'blueberry_b',  name:'Blueberry Bush',   emoji:'🫐', category:'Trees & Shrubs',size:'2×2', sunlight:'Full Sun',     water:'Medium', season:'Perennial',    spacing:'60 in', days:'60–90',  companions:'Rhododendron, Pine, Azalea',    description:'Needs acidic soil (pH 4.5–5.5). Can produce for 50+ years with proper care. Net against birds.', custom:false },
+        ];
+      },
+
+    };
+  }
+  </script>
+</body>
+</html>
