@@ -598,11 +598,14 @@
     </aside>
 
     <!-- Grid -->
-    <main class="grid-area" @contextmenu.prevent>
+    <main class="grid-area" @contextmenu.prevent="onGridRightClick($event)">
       <div class="grid-wrap">
         <div
           class="grid"
           :style="`grid-template-columns: repeat(${gridCols}, ${cellSize}px); grid-template-rows: repeat(${gridRows}, ${cellSize}px);`"
+          @click="onGridClick($event)"
+          @mousedown="onGridMouseDown($event)"
+          @mousemove="onGridMouseMove($event)"
         >
           <template x-for="(cell, idx) in cells" :key="idx">
             <div
@@ -610,9 +613,6 @@
               :class="tileClass(cell)"
               :style="`width:${cellSize}px;height:${cellSize}px;`"
               :title="cellTooltip(cell)"
-              @mousedown="onMouseDown(idx, $event)"
-              @mouseenter="onMouseEnter(idx)"
-              @click="onClick(idx)"
             >
               <!-- Plant emoji at origin cell -->
               <span
@@ -1008,25 +1008,53 @@
         if (this.selectedPlant) this.activeTool = 'select';
       },
 
-      onMouseDown(idx, event) {
-        if (event.button === 2) { this.eraseAt(idx); return; }
-        this.isPainting = true;
-        if (this.activeTool !== 'select') this.applyTile(idx);
+      /* Convert a mouse event on the grid container to a cell index */
+      eventToIdx(event) {
+        const rect = event.currentTarget.getBoundingClientRect();
+        const c = Math.floor((event.clientX - rect.left) / this.cellSize);
+        const r = Math.floor((event.clientY - rect.top)  / this.cellSize);
+        if (c < 0 || c >= this.gridCols || r < 0 || r >= this.gridRows) return -1;
+        return r * this.gridCols + c;
       },
 
-      onMouseEnter(idx) {
-        if (!this.isPainting) return;
-        if (this.activeTool !== 'select') this.applyTile(idx);
-      },
-
-      onClick(idx) {
-        if (this.activeTool === 'select') {
-          if (this.selectedPlant) {
-            this.placePlant(idx);
-          } else {
-            this.openModal(idx);
-          }
+      onGridMouseDown(event) {
+        if (event.button === 2) {
+          const idx = this.eventToIdx(event);
+          if (idx >= 0) this.eraseAt(idx);
+          return;
         }
+        this.isPainting = true;
+        if (this.activeTool !== 'select') {
+          const idx = this.eventToIdx(event);
+          if (idx >= 0) this.applyTile(idx);
+        }
+      },
+
+      onGridMouseMove(event) {
+        if (!this.isPainting || this.activeTool === 'select') return;
+        const idx = this.eventToIdx(event);
+        if (idx >= 0) this.applyTile(idx);
+      },
+
+      onGridClick(event) {
+        if (this.activeTool !== 'select') return;
+        const idx = this.eventToIdx(event);
+        if (idx < 0) return;
+        if (this.selectedPlant) {
+          this.placePlant(idx);
+        } else {
+          this.openModal(idx);
+        }
+      },
+
+      onGridRightClick(event) {
+        const grid = event.currentTarget.querySelector('.grid');
+        if (!grid) return;
+        const rect = grid.getBoundingClientRect();
+        const c = Math.floor((event.clientX - rect.left) / this.cellSize);
+        const r = Math.floor((event.clientY - rect.top)  / this.cellSize);
+        if (c < 0 || c >= this.gridCols || r < 0 || r >= this.gridRows) return;
+        this.eraseAt(r * this.gridCols + c);
       },
 
       applyTile(idx) {
@@ -1047,7 +1075,7 @@
       /* ── Plant placement ── */
       placePlant(idx) {
         const plant = this.getPlant(this.selectedPlant);
-        if (!plant) return;
+        if (!plant) { this.flash('⚠ No plant selected'); return; }
         const [sr, sc] = plant.size.split('×').map(Number);
         const r0 = this.row(idx), c0 = this.col(idx);
 
