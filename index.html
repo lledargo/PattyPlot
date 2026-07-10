@@ -612,7 +612,7 @@
               :title="cellTooltip(cell)"
               @mousedown.prevent="onMouseDown(idx, $event)"
               @mouseenter="onMouseEnter(idx)"
-              @click="onClick(idx)"
+              @mouseup="onMouseUp(idx)"
             >
               <!-- Plant emoji at origin cell -->
               <span
@@ -925,6 +925,7 @@
       cells: [],
       activeTool: 'select',
       isPainting: false,
+      didDrag: false,
       selectedPlant: null,
       paletteQ: '',
       plants: [],
@@ -1011,22 +1012,25 @@
       onMouseDown(idx, event) {
         if (event.button === 2) { this.eraseAt(idx); return; }
         this.isPainting = true;
+        this.didDrag = false;
         if (this.activeTool !== 'select') this.applyTile(idx);
       },
 
       onMouseEnter(idx) {
         if (!this.isPainting) return;
+        this.didDrag = true;
         if (this.activeTool !== 'select') this.applyTile(idx);
       },
 
-      onClick(idx) {
-        if (this.activeTool === 'select') {
+      onMouseUp(idx) {
+        if (this.activeTool === 'select' && !this.didDrag) {
           if (this.selectedPlant) {
             this.placePlant(idx);
           } else {
             this.openModal(idx);
           }
         }
+        this.didDrag = false;
       },
 
       applyTile(idx) {
