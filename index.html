@@ -4,8 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PattyPlot – Garden Planner</title>
-<script defer src="vendor/alpine.min.js"></script>
-<script src="vendor/htmx.min.js"></script>
+<!-- Libraries load at the end of <body>: vendor/ first, CDN as fallback -->
 <style>
   :root {
     --bg:#eef5ec; --surface:#fff; --border:#c9dfcc;
@@ -499,6 +498,27 @@ function seedPlants(){
     P('fig','Fig Tree','🌳','Trees & Shrubs','2x2','Full Sun','Low','Perennial','96 in','Seasonal','Rue, Chamomile','Drought-tolerant; prune in late winter.'),
   ];
 }
+
+/* Load each library from vendor/ if present, otherwise fall back to its CDN. */
+function loadWithFallback(sources, onFail){
+  const [src, ...rest] = sources;
+  if(!src){ if(onFail) onFail(); return; }
+  const s = document.createElement('script');
+  s.src = src;
+  s.onerror = () => { s.remove(); loadWithFallback(rest, onFail); };
+  document.head.appendChild(s);
+}
+loadWithFallback([
+  'vendor/htmx.min.js',
+  'https://unpkg.com/htmx.org@1.9.12/dist/htmx.min.js',
+]);
+loadWithFallback([
+  'vendor/alpine.min.js',
+  'https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js',
+], () => {
+  document.body.innerHTML =
+    '<p style="padding:2rem;font-family:sans-serif">Could not load Alpine.js from vendor/ or the CDN. Check your connection or restore the vendor folder.</p>';
+});
 </script>
 </body>
 </html>
